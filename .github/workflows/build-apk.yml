@@ -2,36 +2,31 @@ name: Build Flet APK
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main, master ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
-          
-      - name: Install dependencies
+          python-version: "3.11"
+
+      - name: Install Flet CLI
         run: |
-          pip install flet
-          
-      - name: Install Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.24.0'
-          
-      - name: Build APK
+          pip install --upgrade pip
+          pip install flet==0.25.0
+
+      - name: Build APK with Flet
         run: |
-          flutter config --no-analytics
-          flet build apk --project nima_app
+          flet build apk --project-name "nima_accounting" --org "com.nima.accounting" --yes
           
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-release
+          name: nima-apk
           path: build/apk/app-release.apk
