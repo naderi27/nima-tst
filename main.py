@@ -4,11 +4,26 @@ import shutil
 import sqlite3
 import flet as ft
 
+# متغیر سراسری برای مسیر دیتابیس (بعداً در تابع main مقداردهی می‌شود)
 DB_FILENAME = "nima_accounting.db"
 
 
-def init_db():
-  conn = sqlite3.connect(DB_FILENAME)
+def get_db_path(page: ft.Page):
+  # اگر برنامه روی موبایل (اندروید/آی‌اواس) اجرا شود، مسیر امن را می‌گیرد
+  try:
+    if page.web:
+      return DB_FILENAME
+    # بررسی اینکه آیا پلتفرم موبایل است
+    storage_path = page.get_persistent_storage_path()
+    if storage_path:
+      return os.path.join(storage_path, "nima_accounting.db")
+  except Exception:
+    pass
+  return DB_FILENAME
+
+
+def init_db(db_path):
+  conn = sqlite3.connect(db_path)
   c = conn.cursor()
   c.execute(
       """
@@ -47,7 +62,9 @@ def main(page: ft.Page):
   page.padding = 10
   page.scroll = ft.ScrollMode.AUTO
 
-  init_db()
+  # تعیین مسیر درست دیتابیس برای اندروید یا ویندوز
+  db_path = get_db_path(page)
+  init_db(db_path)
 
   customer_input = ft.TextField(
       label="نام مشتری جدید یا موجود",
@@ -102,7 +119,7 @@ def main(page: ft.Page):
     try:
       backup_name = f"nima_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
       backup_path = os.path.join(os.getcwd(), backup_name)
-      shutil.copy(DB_FILENAME, backup_path)
+      shutil.copy(db_path, backup_path)
       show_snack(f"پشتیبان با موفقیت ذخیره شد:\n{backup_name}")
     except Exception as ex:
       show_snack(f"خطا در پشتیبان‌گیری: {ex}", ft.Colors.RED)
@@ -110,7 +127,7 @@ def main(page: ft.Page):
   def open_customer_details(cid, cname):
     details_list = ft.Column(spacing=5, scroll=ft.ScrollMode.AUTO)
 
-    conn_t = sqlite3.connect(DB_FILENAME)
+    conn_t = sqlite3.connect(db_path)
     trans = conn_t.execute(
         "SELECT date, debt, paid, note FROM transactions WHERE customer_id = ?"
         " ORDER BY id DESC",
@@ -169,7 +186,7 @@ def main(page: ft.Page):
 
   def load_data(search_query=""):
     customers_list_view.controls.clear()
-    conn = sqlite3.connect(DB_FILENAME)
+    conn = sqlite3.connect(db_path)
     c = conn.cursor()
 
     if search_query:
@@ -206,7 +223,7 @@ def main(page: ft.Page):
       total_all_paid += total_paid
 
       def delete_customer(e, cid=c_id):
-        conn_del = sqlite3.connect(DB_FILENAME)
+        conn_del = sqlite3.connect(db_path)
         conn_del.execute("DELETE FROM transactions WHERE customer_id = ?", (cid,))
         conn_del.execute("DELETE FROM customers WHERE id = ?", (cid,))
         conn_del.commit()
@@ -298,7 +315,7 @@ def main(page: ft.Page):
     date_val = date_input.value
     note_val = note_input.value.strip()
 
-    conn = sqlite3.connect(DB_FILENAME)
+    conn = sqlite3.connect(db_path)
     c = conn.cursor()
 
     c.execute("SELECT id FROM customers WHERE name = ?", (c_name,))
